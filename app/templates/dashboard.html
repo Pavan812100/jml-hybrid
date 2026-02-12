@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>JML Hybrid IT Framework</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; }
+    .badge { display:inline-block; padding:6px 10px; border-radius:999px; background:#eee; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background: #f7f7f7; }
+    .muted { color:#666; }
+  </style>
+</head>
+<body>
+  <h1>JML Hybrid IT Framework</h1>
+  <p class="muted">Role seen by server: <span class="badge">{{ role }}</span></p>
+
+  {% if not is_admin %}
+    <p><b>Access limited.</b> Open this page with header <code>X-Role: HR_ADMIN</code> to see employees/events.</p>
+  {% else %}
+
+    <h2>Employees</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th><th>Name</th><th>Role</th><th>Manager</th><th>Status</th><th>Updated</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in employees %}
+        <tr>
+          <td>{{ e.employee_id }}</td>
+          <td>{{ e.given_name }} {{ e.family_name }}</td>
+          <td>{{ e.role }}</td>
+          <td>{{ e.manager }}</td>
+          <td>{{ e.status }}</td>
+          <td>{{ e.updated_at }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <h2>Recent Events</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th><th>Employee</th><th>Type</th><th>Created</th><th>Payload</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ev in events %}
+        <tr>
+          <td>{{ ev.id }}</td>
+          <td>{{ ev.employee_id }}</td>
+          <td>{{ ev.event_type }}</td>
+          <td>{{ ev.created_at }}</td>
+          <td><code style="white-space:pre-wrap">{{ ev.payload_json }}</code></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+  {% endif %}
+</body>
+</html>

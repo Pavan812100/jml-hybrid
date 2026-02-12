@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Employees</h2>
+
+<div class="card">
+  <label>Role header (X-Role)</label>
+  <select id="xRole">
+    <option>IT_ADMIN</option>
+    <option>HR_ADMIN</option>
+    <option>SEC_ADMIN</option>
+    <option>WORKER</option>
+  </select>
+  <button onclick="loadEmployees()">Load</button>
+  <div id="out"></div>
+</div>
+
+<script>
+async function loadEmployees() {
+  const xRole = document.getElementById("xRole").value;
+  const out = document.getElementById("out");
+  out.innerHTML = "Loading...";
+
+  const res = await fetch("/employees", { headers: { "X-Role": xRole } });
+  const txt = await res.text();
+  if (!res.ok) { out.innerHTML = `<p class="err">${txt}</p>`; return; }
+
+  const rows = JSON.parse(txt);
+  if (!rows.length) { out.innerHTML = "<p>No employees yet.</p>"; return; }
+
+  let html = `<table>
+    <tr>
+      <th>employee_id</th><th>given_name</th><th>family_name</th><th>role</th>
+      <th>manager</th><th>status</th><th>access_role</th><th>updated_at</th>
+    </tr>`;
+  for (const r of rows) {
+    html += `<tr>
+      <td>${r.employee_id}</td>
+      <td>${r.given_name || ""}</td>
+      <td>${r.family_name || ""}</td>
+      <td>${r.role || ""}</td>
+      <td>${r.manager || ""}</td>
+      <td>${r.status || ""}</td>
+      <td>${r.access_role || ""}</td>
+      <td>${r.updated_at || ""}</td>
+    </tr>`;
+  }
+  html += `</table>`;
+  out.innerHTML = html;
+}
+</script>
+{% endblock %}

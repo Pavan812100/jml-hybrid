@@ -1,75 +1,87 @@
 from __future__ import annotations
 
-import json
-from enum import Enum
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
-from app.db import (
-    init_db,
-    upsert_employee,
-    set_employee_status,
-    log_hr_event,
-    list_employees,
-    list_hr_events,
-)
+from app import db
 
-class EventType(str, Enum):
-    joiner = "joiner"
-    mover = "mover"
-    leaver = "leaver"
+app = FastAPI(title="JML Hybrid", version="1.0.0")
+
+ALLOWED_EVENT_TYPES = {"joiner", "mover", "leaver"}
+ADMIN_ROLES = {"HR_ADMIN", "IT_ADMIN", "SEC_ADMIN"}
+
+
+def require_admin(x_role: Optional[str]) -> str:
+    role = (x_role or "WORKER").strip().upper()
+    if role not in ADMIN_ROLES:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Forbidden: requires one of {sorted(list(ADMIN_ROLES))}, got {role}",
+        )
+    return role
+
 
 class HREvent(BaseModel):
-    event_type: EventType
+    event_type: str
     employee_id: str
-    given_name: Optional[str] = None
-    family_name: Optional[str] = None
-    role: Optional[str] = None
-    manager: Optional[str] = None
+    given_name: Optional[str] = ""
+    family_name: Optional[str] = ""
+    role: Optional[str] = "WORKER"
+    manager: Optional[str] = ""
 
-app = FastAPI(title="JML Hybrid IT Infrastructure (Demo)")
 
 @app.on_event("startup")
 def _startup():
-    init_db()
+    db.init_db()
+
 
 @app.get("/")
-def root():
+def health():
     return {
         "service": "jml-hybrid",
         "status": "ok",
         "endpoints": ["/docs", "/hr/event", "/employees", "/events"],
     }
 
-@app.post("/hr/event")
-def handle_hr_event(evt: HREvent):
-    emp_id = evt.employee_id.strip()
 
-    # Always ensure employee exists before logging event (prevents FK failure)
-    upsert_employee(
+@app.post("/hr/event")
+def handle_hr_event(evt: HREvent, x_role: Optional[str] = Header(default=None, alias="X-Role")):
+    # only admins can submit HR events
+    require_admin(x_role)
+
+    event_type = (evt.event_type or "").strip().lower()
+    if event_type not in ALLOWED_EVENT_TYPES:
+        raise HTTPException(status_code=400, detail=f"Invalid event_type. Use one of {sorted(list(ALLOWED_EVENT_TYPES))}")
+
+    emp_id = (evt.employee_id or "").strip()
+    if not emp_id:
+        raise HTTPException(status_code=400, detail="employee_id is required")
+
+    # Ensure employee exists FIRST (prevents FK failures)
+    db.upsert_employee(
         employee_id=emp_id,
         given_name=(evt.given_name or "").strip(),
         family_name=(evt.family_name or "").strip(),
-        role=(evt.role or "").strip(),
+        role=(evt.role or "WORKER").strip().upper(),
         manager=(evt.manager or "").strip(),
         status="active",
     )
 
-    # Simple JML logic
-    if evt.event_type == EventType.leaver:
-        set_employee_status(emp_id, "inactive")
+    payload_json = evt.model_dump_json()
+    db.log_hr_event(event_type, emp_id, payload_json)
 
-    payload_json = json.dumps(evt.dict(), ensure_ascii=False)
-    log_hr_event(evt.event_type.value, emp_id, payload_json)
+    return {"status": "processed", "employee_id": emp_id, "event_type": event_type}
 
-    return {"status": "processed", "employee_id": emp_id, "message": "ok"}
 
 @app.get("/employees")
-def get_employees():
-    return list_employees()
+def employees(x_role: Optional[str] = Header(default=None, alias="X-Role")) -> List[Dict[str, Any]]:
+    require_admin(x_role)
+    return db.list_employees()
+
 
 @app.get("/events")
-def get_events():
-    return list_hr_events(limit=200)
+def events(x_role: Optional[str] = Header(default=None, alias="X-Role")) -> List[Dict[str, Any]]:
+    require_admin(x_role)
+    return db.list_events(limit=200)

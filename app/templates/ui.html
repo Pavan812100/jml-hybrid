@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>JML Hybrid HR Interface</h2>
+<p class="small">
+  This UI calls the API endpoint <code>POST /hr/event</code>.
+  Use <code>X-Role</code> as HR_ADMIN/IT_ADMIN/SEC_ADMIN.
+</p>
+
+<div class="card">
+  <h3>Create HR Event (Joiner / Mover / Leaver)</h3>
+
+  <div class="row">
+    <div>
+      <label>Role header (X-Role)</label>
+      <select id="xRole">
+        <option>HR_ADMIN</option>
+        <option>IT_ADMIN</option>
+        <option>SEC_ADMIN</option>
+        <option>WORKER</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Event Type</label>
+      <select id="eventType">
+        <option value="joiner">joiner</option>
+        <option value="mover">mover</option>
+        <option value="leaver">leaver</option>
+      </select>
+    </div>
+  </div>
+
+  <label>Employee ID</label>
+  <input id="employeeId" placeholder="EMP001" />
+
+  <div class="row">
+    <div>
+      <label>Given Name</label>
+      <input id="givenName" placeholder="Pavan" />
+    </div>
+    <div>
+      <label>Family Name</label>
+      <input id="familyName" placeholder="Admin" />
+    </div>
+  </div>
+
+  <div class="row">
+    <div>
+      <label>Role (Job Title)</label>
+      <input id="role" placeholder="Administrator / Analyst" />
+    </div>
+    <div>
+      <label>Manager (Employee ID)</label>
+      <input id="manager" placeholder="EMP001" />
+    </div>
+  </div>
+
+  <button onclick="sendEvent()">Send Event</button>
+  <div id="msg"></div>
+</div>
+
+<script>
+async function sendEvent() {
+  const payload = {
+    event_type: document.getElementById("eventType").value,
+    employee_id: document.getElementById("employeeId").value.trim(),
+    given_name: document.getElementById("givenName").value.trim() || null,
+    family_name: document.getElementById("familyName").value.trim() || null,
+    role: document.getElementById("role").value.trim() || null,
+    manager: document.getElementById("manager").value.trim() || null
+  };
+
+  const xRole = document.getElementById("xRole").value;
+  const msg = document.getElementById("msg");
+  msg.innerHTML = "";
+
+  try {
+    const res = await fetch("/hr/event", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Role": xRole
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const text = await res.text();
+    if (!res.ok) {
+      msg.innerHTML = `<p class="err">Error ${res.status}: ${text}</p>`;
+      return;
+    }
+    msg.innerHTML = `<p class="ok">OK: ${text}</p>`;
+  } catch (e) {
+    msg.innerHTML = `<p class="err">${e}</p>`;
+  }
+}
+</script>
+{% endblock %}

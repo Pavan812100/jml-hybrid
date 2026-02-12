@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>HR Events</h2>
+
+<div class="card">
+  <label>Role header (X-Role)</label>
+  <select id="xRole">
+    <option>IT_ADMIN</option>
+    <option>HR_ADMIN</option>
+    <option>SEC_ADMIN</option>
+    <option>WORKER</option>
+  </select>
+  <button onclick="loadEvents()">Load</button>
+  <div id="out"></div>
+</div>
+
+<script>
+async function loadEvents() {
+  const xRole = document.getElementById("xRole").value;
+  const out = document.getElementById("out");
+  out.innerHTML = "Loading...";
+
+  const res = await fetch("/events", { headers: { "X-Role": xRole } });
+  const txt = await res.text();
+  if (!res.ok) { out.innerHTML = `<p class="err">${txt}</p>`; return; }
+
+  const rows = JSON.parse(txt);
+  if (!rows.length) { out.innerHTML = "<p>No events yet.</p>"; return; }
+
+  let html = `<table>
+    <tr><th>id</th><th>ts</th><th>event_type</th><th>employee_id</th><th>payload_json</th></tr>`;
+  for (const r of rows) {
+    html += `<tr>
+      <td>${r.id}</td>
+      <td>${r.ts}</td>
+      <td>${r.event_type}</td>
+      <td>${r.employee_id}</td>
+      <td><code>${(r.payload_json || "").replaceAll("<","&lt;")}</code></td>
+    </tr>`;
+  }
+  html += `</table>`;
+  out.innerHTML = html;
+}
+</script>
+{% endblock %}
